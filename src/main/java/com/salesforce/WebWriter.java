@@ -70,7 +70,10 @@ public class WebWriter {
 			} else {
 				sb.append("<td bgcolor='"+colors[colorCount++]+"' width='"+ barWidth +"' height='10'");
 				sb.append("</td>");
-				sb.append("<td>" + font + df.format((double)values[i].duration/1000) + "s</font><font size=1 color='gray'> <span title='"+values[i].explainPlan.replace("'", "") +"'>"+ versions[i].toUpperCase() +"</span></font></td>");
+				if (PhoenixRegressor.curTask == PhoenixRegressor.TaskType.E_PUBLISH)
+					sb.append("<td>" + font + df.format(values[i].duration) + "ns</font><font size=1 color='gray'> <span title='"+values[i].explainPlan.replace("'", "") +"'>"+ versions[i].toUpperCase() +"</span></font></td>");
+				else
+					sb.append("<td>" + font + df.format((double)values[i].duration/1000) + "s</font><font size=1 color='gray'> <span title='"+values[i].explainPlan.replace("'", "") +"'>"+ versions[i].toUpperCase() +"</span></font></td>");
 				sb.append("</font>");
 			}
 			sb.append("</tr>");

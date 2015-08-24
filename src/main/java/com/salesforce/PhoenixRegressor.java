@@ -14,6 +14,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 
 import com.google.gson.Gson;
+import org.apache.log4j.PropertyConfigurator;
 
 /**
  * Main class for PHoenix Regressor
@@ -24,6 +25,12 @@ public class PhoenixRegressor {
 	
 	private static final String RESULT_GSON_EXT = "result";
 	private static PerformanceResult performanceResults = new PerformanceResult();
+
+	public static enum TaskType {
+		PUBLISH, EXECUTE_TEST, EXPLAIN_TEST, E_PUBLISH
+	}
+
+	public static TaskType curTask;
 	
 	/**
 	 * Main static entry point to Phoenix Regressor
@@ -31,16 +38,29 @@ public class PhoenixRegressor {
 	 * @throws Exception
 	 */
 	public static void main(String[] args) throws Exception {
+		PropertyConfigurator.configure("log4j.properties");
 		TestSettings ts = new Gson().fromJson(FileUtils.readFileToString(new File("settings.json")), TestSettings.class);
 
 		if (args.length != 0 && args[0].toLowerCase().equals("publish")) {
+			curTask = TaskType.PUBLISH;
 			// only generate HTML comparative results
 			ResultGenerator.publish(ts);
-			return;
-		} else {
+		} else if (args.length != 0 && args[0].toLowerCase().equals("epublish")) {
+			curTask = TaskType.E_PUBLISH;
+			// only generate HTML comparative results
+			ResultGenerator.publish(ts);
+		} else if (args.length != 0 && args[0].toLowerCase().equals("explain")) {
+			curTask = TaskType.EXPLAIN_TEST;
+            runPerformanceTests(ts);
+        } else {
+			curTask = TaskType.EXECUTE_TEST;
 			// run perf suite
 			runPerformanceTests(ts);
 		}
+	}
+
+	public static boolean isExplainTest() {
+		return curTask == TaskType.EXPLAIN_TEST;
 	}
 	
 	private static void runPerformanceTests(TestSettings ts) throws Exception {
@@ -67,7 +87,7 @@ public class PhoenixRegressor {
 		File resultFile = new File(resultFilePath);
 		FileUtils.writeStringToFile(resultFile, new Gson().toJson(performanceResults));
 	}
-	
+
 	private static void runTestGson(String testFile, boolean loadAndCreateData, int iterations) throws Exception {
 		HashMap<String, Timing> results = new HashMap<String, Timing>(); 
 		
@@ -81,15 +101,21 @@ public class PhoenixRegressor {
 		long upsertDataTime = -3;
 		if (loadAndCreateData) {
 			DataGenerator.createTable(performanceTest.TABLE, performanceTest.CREATE_DDL);
-			DataGenerator.generateData(performanceTest.TABLE, performanceTest.ROW_COUNT, performanceTest.FIELDS);
-			upsertDataTime = DataGenerator.upsertData(performanceTest.TABLE);
+			if (!isExplainTest()) {
+				DataGenerator.generateData(performanceTest.TABLE, performanceTest.ROW_COUNT, performanceTest.FIELDS);
+				upsertDataTime = DataGenerator.upsertData(performanceTest.TABLE);
+			} else
+				upsertDataTime = 0;
 		}
 		
 		// measure query performance
 		for (PerformanceTest.Query query : performanceTest.QUERIES) {
 			query.Sql = query.Sql.replace(DataGenerator.TABLE_ALIAS, performanceTest.TABLE);
 			String sqlModifiedSpecial = modifySpecial(query.Sql, performanceTest);
-			results.put(query.Sql, new Timing(runQuery(sqlModifiedSpecial, iterations), getExplainPlan(sqlModifiedSpecial)));
+            if (isExplainTest())
+                results.put(query.Sql, new Timing(runQuery(getExplainSql(sqlModifiedSpecial), iterations), getExplainPlan(sqlModifiedSpecial)));
+			else
+                results.put(query.Sql, new Timing(runQuery(sqlModifiedSpecial, iterations), getExplainPlan(sqlModifiedSpecial)));
 		}
 		results.put(performanceTest.getLoadString(), new Timing(upsertDataTime, ""));
 		performanceResults.testResults.put(performanceTest.TABLE, results);
@@ -98,7 +124,9 @@ public class PhoenixRegressor {
 	private static String getExplainPlan(String query) {
 		StringBuilder buf = new StringBuilder();
 		try {
-			PreparedStatement statement = PhoenixConnection.getConnection().prepareStatement("EXPLAIN " + query);
+            String explainSql = getExplainSql(query);
+	        System.out.println("getExplainPlan query= " + explainSql);
+			PreparedStatement statement = PhoenixConnection.getConnection().prepareStatement(explainSql);
 			ResultSet rs = statement.executeQuery();
 	        
 	        while (rs.next()) {
@@ -128,29 +156,33 @@ public class PhoenixRegressor {
 		}
 		return query;
 	}
+
+    private static String getExplainSql(String sql) {
+        return (PhoenixConnection.isCalciteConnection() ? "EXPLAIN PLAN FOR " : "EXPLAIN ") + sql;
+    }
 	
 	private static long runQuery(String query, int iterations) {
-	
 		try {
 			List<Long> result = new ArrayList<Long>();
 			
+			System.out.println("runQuery query=" + query);
 			if (query.toUpperCase().startsWith("SELECT")) {
 				PreparedStatement statement = PhoenixConnection.getConnection().prepareStatement(query);
 				for (int i=0; i<iterations; i++) {
-					long start = System.currentTimeMillis();
+					long start = isExplainTest() ? System.nanoTime() : System.currentTimeMillis();
 					ResultSet rs = statement.executeQuery();
 					while (rs.next()) {}
 					rs.close();
-					result.add(System.currentTimeMillis() - start);
+					result.add((isExplainTest() ? System.nanoTime() : System.currentTimeMillis()) - start);
 				}
 				statement.close();
 			} else {
 				Connection conn = PhoenixConnection.getConnection();
 				conn.setAutoCommit(true);
 				PreparedStatement statement = conn.prepareStatement(query);
-				long start = System.currentTimeMillis();
+				long start = isExplainTest() ? System.nanoTime() : System.currentTimeMillis();
 				statement.execute();
-				result.add(System.currentTimeMillis() - start);
+				result.add((isExplainTest() ? System.nanoTime() : System.currentTimeMillis()) - start);
 				statement.close();
 				conn.close();
 			}

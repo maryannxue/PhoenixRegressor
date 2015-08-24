@@ -13,7 +13,6 @@ import java.util.Random;
 
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.phoenix.util.CSVCommonsLoader;
 
 public class DataGenerator {
 
@@ -32,7 +31,7 @@ public class DataGenerator {
 	public static void executeStatement(String ddl) {
 		try {
 			System.out.println("EXECUTING DDL: " + ddl);
-			Connection conn = PhoenixConnection.getConnection();
+			Connection conn = PhoenixConnection.getPhoenixConnection();
 			PreparedStatement statement = conn.prepareStatement(ddl);
 			statement.execute();
 			conn.commit();
@@ -41,6 +40,8 @@ public class DataGenerator {
 		} 
 		catch (SQLException ex) {
 			System.out.println(ex.toString());
+		} finally {
+		    System.out.println("EXECUTING DDL finished");
 		}
 	}
 	
@@ -140,7 +141,7 @@ public class DataGenerator {
 	}
 	
 	public static long upsertData(String tableName) throws Exception {
-		org.apache.phoenix.util.CSVCommonsLoader csvLoader = new CSVCommonsLoader((org.apache.phoenix.jdbc.PhoenixConnection) PhoenixConnection.getConnection(), tableName, null, true);
+		org.apache.phoenix.util.CSVCommonsLoader csvLoader = new org.apache.phoenix.util.CSVCommonsLoader(PhoenixConnection.getPhoenixConnection(), tableName, null, true);
 		long start = System.currentTimeMillis();
 		csvLoader.upsert(CSV_FOLDER + "/" + tableName + ".csv");
 		long ret = System.currentTimeMillis() - start;

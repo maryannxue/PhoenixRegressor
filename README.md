@@ -22,3 +22,11 @@ If you want to compare say, two different Phoenix versions, change Phoenix versi
 
 This will produce comparison graphs in HTML located at _PUBLISH_PATH_ based on all the result files available in RESULT directory
 
+## How to test with Phoenix/Calcite
+
+ * checkout [this code](https://github.com/shuxiong/phoenix/tree/calcite-pom), Notice: branch calcite-pom
+ * using command, mvn install -DskipTests -DskipITs, to install package to local mvn repo, with name, 4.5.0-calcite
+ * change version of pom.xml to 4.5.0-calcite
+ * change setting in src/main/resources/settings.json
+ * using command, <b>``java -jar PhoenixRegressor-1.0-SNAPSHOT-jar-with-dependencies.jar``</b>, to test in directory target.
+   * Calcite does not support sql like "create table", so phoenix native connection is used when executing such sqls.
