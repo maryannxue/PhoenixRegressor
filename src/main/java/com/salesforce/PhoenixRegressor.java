@@ -192,11 +192,14 @@ public class PhoenixRegressor {
 			
 			return result.get(0);
 		} catch (java.sql.SQLFeatureNotSupportedException e) {
+            e.printStackTrace();
 			return PerfConstants.NOT_SUPPORTED;
 		} catch (SQLException e) {
+		    e.printStackTrace();
 			return PerfConstants.SQL_EXCEPTION;
 		} catch (Exception e) {
-		return PerfConstants.GENERIC_EXCEPTION;
+            e.printStackTrace();
+            return PerfConstants.GENERIC_EXCEPTION;
 		}
 	}
 }
