@@ -5,8 +5,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.apache.calcite.config.CalciteConnectionProperty;
-
 /**
  * Phoenix Connection
  * @author mchohan
@@ -33,14 +31,7 @@ class PhoenixConnection {
 	}
 	
 	protected static Connection getConnection() throws SQLException {
-        Properties props = new Properties();
-        props.setProperty(
-                CalciteConnectionProperty.MATERIALIZATIONS_ENABLED.camelName(),
-                Boolean.toString(false));
-        props.setProperty(
-                CalciteConnectionProperty.CREATE_MATERIALIZATIONS.camelName(),
-                Boolean.toString(false));
-        return DriverManager.getConnection(CONNECTION_STRING, props);
+        return DriverManager.getConnection(CONNECTION_STRING);
 	}
 
 	static boolean isCalciteConnection() {
